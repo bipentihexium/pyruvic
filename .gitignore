@@ -1,0 +1,5 @@
+.pyr/*
+build/*
+!build/pyruvic*.cfg
+.vscode/*
+src/cfg.hpp
