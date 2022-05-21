@@ -1,5 +1,6 @@
 #include <iostream>
 #include "cfg.hpp"
+#include "formatted_out.hpp"
 #include "project_utils.hpp"
 
 void showHelp() {
@@ -30,6 +31,7 @@ int main(int argc, char **argv) {
 	bool clean, build, run;
 	bool release, obfuscate;
 	clean = build = run = release = obfuscate = false;
+	load_cfg();
 	for (int i = 1; i < argc; ++i) {
 		std::string arg(argv[i]);
 		if (arg == "help") {
@@ -37,7 +39,7 @@ int main(int argc, char **argv) {
 			return 0;
 		} else if (arg == "new") {
 			if (++i >= argc) {
-				std::cout << "Expected project name" << std::endl;
+				std::cout << prettyErrorGeneral("Expected project name", severity::ERROR) << std::endl;
 				return -1;
 			}
 			new_project(std::string(argv[i]));
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
 				} else if (arg == "--version") {
 					printVersion();
 				} else {
-					std::cout << "Unknown option \"" << arg << "\"" << std::endl;
+					std::cout << prettyErrorGeneral("Unknown option \"" + arg + "\"", severity::ERROR) << std::endl;
 				}
 			} else {
 				for (unsigned int j = 1; j < arg.size(); ++j) {
@@ -68,13 +70,13 @@ int main(int argc, char **argv) {
 					case 'o': obfuscate = true; break;
 					case 'c': clean = true; break;
 					default:
-						std::cout << "Unknown switch -" << arg[j] << std::endl;
+						std::cout << prettyErrorGeneral(std::string("Unknown switch -") + arg[j], severity::ERROR) << std::endl;
 						break;
 					}
 				}
 			}
 		} else {
-			std::cout << "Unknown action \"" << arg << "\"" << std::endl;
+			std::cout << prettyErrorGeneral("Unknown action \"" + arg + "\"", severity::ERROR) << std::endl;
 		}
 	}
 	load_project();
@@ -82,7 +84,7 @@ int main(int argc, char **argv) {
 		clean_build_files();
 	}
 	if (build) {
-		build_project();
+		build_project(release, obfuscate);
 	}
 	if (run) {
 		run_project();

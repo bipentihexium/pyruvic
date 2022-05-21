@@ -1,9 +1,41 @@
 #include "project_utils.hpp"
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
+#include "formatted_out.hpp"
+#include "parsing/lex.hpp"
+#include "parsing/par.hpp"
+#include "util.hpp"
 
+void load_cfg() {
+	std::string pyruvic_path = get_exe_path();
+	if (pyruvic_path.empty()) {
+		std::cout << prettyErrorGeneral("Couldn't get executable path :c", severity::FATAL) << std::endl;
+		exit(-1);
+	}
+	std::string cfg_file(pyruvic_path + "/pyruvic.cfg");
+	std::cout << prettyErrorGeneral("loading config file - " + cfg_file, severity::INFO) << std::endl;
+	std::ifstream f(cfg_file);
+	std::stringstream cfg_ss;
+	cfg_ss << f.rdbuf();
+	tokenstream ts = lex(cfg_file, cfg_ss);
+	pyruvic_file cfg(parse(ts));
+	for (const auto &c : cfg) {
+		std::cout << c.first << std::endl;
+		for (const auto &s : c.second) {
+			std::cout << '\t' << (s.first.empty() ? "> ____" : s.first) << std::endl;
+			for (const auto &vl : s.second) {
+				std::cout << "\t\t" << vl.first;
+				for (const auto &v : vl.second) {
+					std::cout << " " << v << ",";
+				}
+				std::cout << std::endl;
+			}
+		}
+	}
+}
 void new_project(const std::string &name) {
 	std::string path("./" + name + "/");
 	std::filesystem::create_directory(path);
@@ -54,8 +86,8 @@ void load_project() {
 void clean_build_files() {
 	;
 }
-void build_project() {
-	;
+void build_project(bool release, bool obfuscate) {
+	(void)release; (void)obfuscate;
 }
 void run_project() {
 	;

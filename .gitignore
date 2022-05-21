@@ -3,3 +3,5 @@ build/*
 !build/pyruvic*.cfg
 .vscode/*
 src/cfg.hpp
+src/parsing/lex.cpp
+src/parsing/par.cpp

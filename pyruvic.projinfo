@@ -6,22 +6,16 @@
 	cfg-file: src/cfg.hpp
 
 [requirements]
-	c++ standard: c++20, c++17
+	c++-standard: c++20, c++17
 
 [dependencies]
 > project
-
 > local
 
 [options]
 
-[commands]
-> pre-build
-	%if %changed cfg.l:
-		flex++ src/cfg.l -o src/cfg_lex.hpp
-	%if %changed projinfo.l:
-		flex++ src/projinfo.l -o src/projinfo_lex.hpp
-	%if %changed cfg.y:
-		bison src/cfg.y -o src/cfg_par.hpp
-	%if %changed projinfo.y:
-		bison src/projinfo.y -o src/projinfo_par.hpp
+[pre-build-commands]
+> lex.l
+	flex++ -o ${src}/parsing/lex.cpp ${src}/parsing/lex.l
+> par.y:
+	bison -o ${src}/parsing/par.cpp ${src}/parsing/par.y
