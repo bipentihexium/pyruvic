@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include "formatted_out.hpp"
@@ -29,6 +30,29 @@ const value_list &get_val_list_by_platform(const subcategory &subcat, const std:
 	}
 	return subcat.at("").at(name);
 }
+void replace_vars(std::string &str) {
+	std::map<std::string, std::string> vars{
+		{ "${src}", "./src" },
+		{ "${build}", "./build" },
+		{ "${version_major}", std::to_string(project::ver_maj) },
+		{ "${version_minor}", std::to_string(project::ver_min) },
+		{ "${version_patch}", std::to_string(project::ver_pat) },
+		{ "${version_tweak}", std::to_string(project::ver_twe) },
+		{ "${version_name}", project::ver_name },
+	};
+	for (size_t i = str.rfind('$'); i != std::string::npos; i = str.rfind('$', i)) {
+		size_t j = str.find('}', i + 2);
+		if (j != std::string::npos && str[i+1] == '{') {
+			std::string v = str.substr(i, j-i+1);
+			auto it = vars.find(v);
+			if (it != vars.end()) {
+				str.replace(i, j-i+1, it->second);
+			}
+		}
+		if (i == 0)
+			break;
+	}
+}
 
 void load_cfg() {
 	std::string pyruvic_path = get_exe_path();
@@ -42,7 +66,6 @@ void load_cfg() {
 	std::stringstream cfg_ss;
 	cfg_ss << f.rdbuf();
 	tokenstream ts = lex(cfg_file, cfg_ss);
-	//for (const auto &t : ts.toks) { std::cout << prettyError(to_str(t.type), severity::DEBUG, t.loc, { highlight(t.val, severity::DEBUG, t.loc) }) << std::endl; }
 	pyruvic_file cfg(parse(ts));
 	const value_list &c_compilers = get_val_list_by_platform(cfg["[compilation]"][""], "c-compiler:");
 	const value_list &cpp_compilers =get_val_list_by_platform(cfg["[compilation]"][""], "c++-compiler:");
@@ -95,19 +118,115 @@ void new_project(const std::string &name) {
 			"\tc++-standard: c++14\n"
 			"\n"
 			"[dependencies]\n"
-			"> project\n"
-			"> local" << std::endl;
+			"local { }\n"
+			"project { }" << std::endl;
 	}
 }
 void load_project() {
-	;
+	std::string proj_file("./pyruvic.projinfo");
+	if (!std::filesystem::exists(proj_file)) {
+		std::cout << prettyErrorGeneral("could not find project file - " + proj_file, severity::FATAL) << std::endl;
+		exit(-1);
+	}
+	std::cout << prettyErrorGeneral("loading project file - " + proj_file, severity::INFO) << std::endl;
+	std::ifstream f(proj_file);
+	std::stringstream projfile_ss;
+	projfile_ss << f.rdbuf();
+	tokenstream ts = lex(proj_file, projfile_ss);
+	pyruvic_file proj(parse(ts));
+	bool errors = false;
+	if (proj["[target]"][""][""]["name:"].empty()) { std::cout << prettyErrorGeneral("[target] must have name", severity::ERROR) << std::endl; errors = true; }
+	if (proj["[target]"][""][""]["type:"].empty()) { std::cout << prettyErrorGeneral("[target] must have type", severity::ERROR) << std::endl; errors = true; }
+	if (proj["[target]"][""][""]["macroname:"].empty()) { std::cout << prettyErrorGeneral("[target] must have macroname", severity::ERROR) << std::endl; errors = true; }
+	if (proj["[target]"][""][""]["version:"].empty()) { std::cout << prettyErrorGeneral("[target] must have version", severity::ERROR) << std::endl; errors = true; }
+	if (errors) { exit(-1); }
+
+	project::name = proj["[target]"][""][""]["name:"][0];
+	const std::string &t = proj["[target]"][""][""]["type:"][0];
+	if (t == "executable") project::type = project::project_t::EXECUTABLE;
+	else if (t == "static library") project::type = project::project_t::STATIC_LIBRARY;
+	else if (t == "dynamic library") project::type = project::project_t::DYNAMIC_LIBRARY;
+	else { std::cout << prettyErrorGeneral("Unkown target type \"" + t + "\"", severity::ERROR) << std::endl; errors = true; }
+	project::macroname = proj["[target]"][""][""]["macroname:"][0];
+	const std::string &v = proj["[target]"][""][""]["version:"][0];
+	int *ver_vals_ptrs[] = { &project::ver_maj, &project::ver_min, &project::ver_pat, &project::ver_twe };
+	constexpr int ver_vals_size = 4;
+	int ver_step = 0;
+	std::string buf;
+	for (size_t i = 0; i < v.size(); ++i) {
+		switch (v[i]) {
+		case ' ': project::ver_name = v.substr(i + 1); i = v.size(); break;
+		case '.':
+			if (ver_step >= ver_vals_size - 1) {
+				std::cout << prettyErrorGeneral("Too much sub-versions (version: " + v + ")", severity::ERROR) << std::endl;
+				errors = true;
+				goto break_version_loop;
+			}
+			ver_vals_ptrs[ver_step++][0] = std::stoi(buf);
+			buf.clear();
+			break;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			buf.push_back(v[i]);
+			break;
+		default:
+			std::cout << prettyErrorGeneral("Unexpected character in version (version: " + v + ")", severity::ERROR) << std::endl;
+			errors = true;
+			break;
+		};
+	}
+break_version_loop:
+	if (!proj["[target]"][""][""]["cfg-file:"].empty()) {
+		project::cfg_file = proj["[target]"][""][""]["cfg-file:"][0];
+		replace_vars(project::cfg_file);
+	}
+	if (!proj["[requirements]"][""][""]["c-standard:"].empty()) {
+		project::c_standard = proj["[requirements]"][""][""]["c-standard:"][0];
+	}
+	if (!proj["[requirements]"][""][""]["c++-standard:"].empty()) {
+		project::cpp_standard = proj["[requirements]"][""][""]["c++-standard:"][0];
+	}
+	if (errors) { exit(-1); }
+
+	// TODO: load other things
 }
 void clean_build_files() {
-	;
+	; // TODO: clean
 }
 void build_project(bool release, bool obfuscate) {
-	(void)release; (void)obfuscate;
+	std::string compile_options("-Wall ");
+	std::string c_compile_options("");
+	std::string cpp_compile_options("");
+	std::string link_options("");
+	if (release) {
+		compile_options += "-O3 ";
+		if (obfuscate) {
+			compile_options += "-static -s -fvisibility=hidden -fvisibility-inlines-hidden ";
+		}
+	} else {
+		compile_options += "-Wextra -Wpedantic -g ";
+	}
+	if (!project::c_standard.empty()) {
+		c_compile_options += "-std=" + project::c_standard + " ";
+	}
+	if (!project::cpp_standard.empty()) {
+		cpp_compile_options += "-std=" + project::cpp_standard + " ";
+	}
+	std::vector<std::string> c_files;
+	std::vector<std::string> cpp_files;
+	for (const auto &dir_entry : std::filesystem::recursive_directory_iterator("./src/")) {
+		std::cout << prettyErrorGeneral(dir_entry.path().string(), severity::DEBUG) << std::endl;
+	}
+	// TODO: build
 }
 void run_project() {
-	;
+	; // TODO: run
 }

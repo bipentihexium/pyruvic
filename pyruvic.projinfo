@@ -3,19 +3,17 @@
 	type: executable
 	macroname: PYRUVIC
 	version: 0.1.0.0 null
-	cfg-file: src/cfg.hpp
+	cfg-file: ${src}/cfg.hpp
 
 [requirements]
-	c++-standard: c++20, c++17
+	c++-standard: c++20
 
 [dependencies]
-> project
-> local
+local { }
+project { }
 
-[options]
-
-[pre-build-commands]
-> lex.l
-	flex++ -o ${src}/parsing/lex.cpp ${src}/parsing/lex.l
-> par.y:
-	bison -o ${src}/parsing/par.cpp ${src}/parsing/par.y
+[commands]
+pre-build {
+	lex.l: flex++ -o ${src}/parsing/lex.cpp ${src}/parsing/lex.l
+	par.y: bison -o ${src}/parsing/par.cpp ${src}/parsing/par.y
+}

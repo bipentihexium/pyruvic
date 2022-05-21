@@ -86,7 +86,7 @@ void yy::parser::report_syntax_error(const context& yyctx) const {
 	symbol_kind_type expected[20];
 	int n = yyctx.expected_tokens(expected, 20);
 	if (n > 0) {
-		msg += ": Expected ";
+		msg += "Expected ";
 		for (int i = 0; i < n; ++i) {
 			if (i != 0)
 				msg += ", ";
@@ -105,7 +105,7 @@ void yy::parser::report_syntax_error(const context& yyctx) const {
 	}
 	msg += "!";
 	const lextoken &lt = la.value.as<lextoken>();
-	std::cout << prettyError(msg, severity::ERROR, lt.loc, { highlight("here", severity::ERROR, lt.loc) });
+	std::cout << prettyError(msg, severity::ERROR, lt.loc, { highlight("here", severity::ERROR, lt.loc) }) << std::endl;
 }
 
 void yy::parser::error(const std::string &msg) {

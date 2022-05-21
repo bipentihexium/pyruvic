@@ -14,7 +14,7 @@ void showHelp() {
 		"\t\torun - runs the last build of project\n" <<
 		"\toptions:\n" <<
 		"\t\t-r    --release - enables optimizations, disables debug info\n" <<
-		"\t\t-o    --obfuscate - only with release builds, makes the code harder to decompile\n" <<
+		"\t\t-o    --obfuscate - only with release builds, makes the code harder to decompile (unstable!)\n" <<
 		"\t\t-c    --clean - cleans build files and project libraries before building\n" <<
 		"\t\t      --version - shows version" << std::endl;
 }
