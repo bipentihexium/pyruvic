@@ -1,4 +1,5 @@
 #include "project_utils.hpp"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -7,7 +8,27 @@
 #include "formatted_out.hpp"
 #include "parsing/lex.hpp"
 #include "parsing/par.hpp"
+#include "runtime_config.hpp"
 #include "util.hpp"
+
+#if defined(__linux__)
+constexpr const char *platform_idents[] = { "unix" };
+#elif defined(_WIN32)
+constexpr const char *platform_idents[] = { "win" };
+#endif
+
+const value_list &get_val_list_by_platform(const subcategory &subcat, const std::string &name) {
+	for (const auto &vp : subcat) {
+		if (std::find_if(std::begin(platform_idents), std::end(platform_idents),
+			[&vp](const char *pi){ return pi == vp.first; })) {
+			auto it = vp.second.find(name);
+			if (it != vp.second.end()) {
+				return it->second;
+			}
+		}
+	}
+	return subcat.at("").at(name);
+}
 
 void load_cfg() {
 	std::string pyruvic_path = get_exe_path();
@@ -21,20 +42,18 @@ void load_cfg() {
 	std::stringstream cfg_ss;
 	cfg_ss << f.rdbuf();
 	tokenstream ts = lex(cfg_file, cfg_ss);
+	//for (const auto &t : ts.toks) { std::cout << prettyError(to_str(t.type), severity::DEBUG, t.loc, { highlight(t.val, severity::DEBUG, t.loc) }) << std::endl; }
 	pyruvic_file cfg(parse(ts));
-	for (const auto &c : cfg) {
-		std::cout << c.first << std::endl;
-		for (const auto &s : c.second) {
-			std::cout << '\t' << (s.first.empty() ? "> ____" : s.first) << std::endl;
-			for (const auto &vl : s.second) {
-				std::cout << "\t\t" << vl.first;
-				for (const auto &v : vl.second) {
-					std::cout << " " << v << ",";
-				}
-				std::cout << std::endl;
-			}
-		}
-	}
+	const value_list &c_compilers = get_val_list_by_platform(cfg["[compilation]"][""], "c-compiler:");
+	const value_list &cpp_compilers =get_val_list_by_platform(cfg["[compilation]"][""], "c++-compiler:");
+	const value_list &linkers = get_val_list_by_platform(cfg["[compilation]"][""], "linker:");
+	for (const auto &c_comp : c_compilers) { if (command_exists(c_comp)) { c_compiler = c_comp; break; } }
+	for (const auto &cpp_comp : cpp_compilers) { if (command_exists(cpp_comp)) { cpp_compiler = cpp_comp; break; } }
+	for (const auto &link : linkers) { if (command_exists(link)) { linker = link; break; } }
+	if (c_compiler.empty()) { std::cout << prettyErrorGeneral("Could not find C compiler.", severity::FATAL) << std::endl; }
+	if (cpp_compiler.empty()) { std::cout << prettyErrorGeneral("Could not find C++ compiler.", severity::FATAL) << std::endl; }
+	if (linker.empty()) { std::cout << prettyErrorGeneral("Could not find linker.", severity::FATAL) << std::endl; }
+	// TODO: load libraries info / just join the categories and make the list global :)
 }
 void new_project(const std::string &name) {
 	std::string path("./" + name + "/");
@@ -73,7 +92,7 @@ void new_project(const std::string &name) {
 			"\tcfg-file: src/cfg.hpp\n"
 			"\n"
 			"[requirements]\n"
-			"\tc++ standard: c++14\n"
+			"\tc++-standard: c++14\n"
 			"\n"
 			"[dependencies]\n"
 			"> project\n"

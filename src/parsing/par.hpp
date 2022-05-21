@@ -7,7 +7,8 @@
 #include "lex.hpp"
 
 class value_list : public std::vector<std::string> { };
-class subcategory : public std::unordered_map<std::string, value_list> { };
+class value_pack : public std::unordered_map<std::string, value_list> { };
+class subcategory : public std::unordered_map<std::string, value_pack> { };
 class category : public std::unordered_map<std::string, subcategory> { };
 class pyruvic_file : public std::unordered_map<std::string, category> { };
 

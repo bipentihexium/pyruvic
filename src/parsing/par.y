@@ -19,14 +19,15 @@
 }
 
 %token EOFTOK 0 "EOF"
-%token CATEGORY "[category]" SUBCATEGORY ">subcategory" VALUE_NAME "value_name:" VALUE "value"
-%token COMMA ","
+%token CATEGORY "[category]" SUBCATEGORY "subcategory{" VALUE_PACK ">value_pack" VALUE_NAME "value_name:" VALUE "value"
+%token COMMA "," CLOSE_BRACE "}"
 
-%type<lextoken> EOFTOK CATEGORY SUBCATEGORY VALUE_NAME VALUE COMMA
+%type<lextoken> EOFTOK CATEGORY SUBCATEGORY VALUE_PACK VALUE_NAME VALUE COMMA CLOSE_BRACE
 %type<lextoken> error
 %type<category> category
 %type<category> subcategories
-%type<subcategory> named_vals
+%type<subcategory> val_packs
+%type<value_pack> named_vals
 %type<value_list> vals
 %type<value_list> vals_nonempty
 
@@ -40,10 +41,13 @@ categories:
 category:
 	"[category]" subcategories { parser_out.insert(std::make_pair($1.val, M($2))); };
 subcategories:
-	named_vals { $$ = category(); $$.insert(std::make_pair("", M($1))); }
-|	subcategories ">subcategory" named_vals { $$ = M($1); $$.insert(std::make_pair($2.val, M($3))); };
+	val_packs { $$ = category(); $$.insert(std::make_pair("", M($1))); }
+|	subcategories "subcategory{" val_packs "}" { $$ = M($1); $$.insert(std::make_pair($2.val, M($3))); };
+val_packs:
+	named_vals { $$ = subcategory(); $$.insert(std::make_pair("", M($1))); }
+|	val_packs ">value_pack" named_vals { $$ = M($1); $$.insert(std::make_pair($2.val, M($3))); };
 named_vals:
-	%empty { $$ = subcategory(); }
+	%empty { $$ = value_pack(); }
 |	named_vals "value_name:" vals { $$ = M($1); $$.insert(std::make_pair($2.val, M($3))); };
 vals:
 	%empty { $$ = value_list(); }
@@ -65,9 +69,11 @@ yy::parser::symbol_type toSymbol(const token &t) {
 	case token_t::ERROR: return yy::parser::make_EOFTOK(t); break;
 	case token_t::CATEGORY: return yy::parser::make_CATEGORY(t); break;
 	case token_t::SUBCATEGORY: return yy::parser::make_SUBCATEGORY(t); break;
+	case token_t::VALUE_PACK: return yy::parser::make_VALUE_PACK(t); break;
 	case token_t::VALUE_NAME: return yy::parser::make_VALUE_NAME(t); break;
 	case token_t::VALUE: return yy::parser::make_VALUE(t); break;
 	case token_t::COMMA: return yy::parser::make_COMMA(t); break;
+	case token_t::CLOSE_BRACE: return yy::parser::make_CLOSE_BRACE(t); break;
 	default: return yy::parser::make_EOFTOK(t);
 	}
 }

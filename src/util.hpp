@@ -4,5 +4,6 @@
 #include <string>
 
 std::string get_exe_path();
+bool command_exists(const std::string &cmd);
 
 #endif

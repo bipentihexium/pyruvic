@@ -8,18 +8,20 @@
 enum class token_t {
 	EOFTOK=0,
 	ERROR=256,
-	CATEGORY, SUBCATEGORY, VALUE_NAME, VALUE,
-	COMMA,
+	CATEGORY, SUBCATEGORY, VALUE_PACK, VALUE_NAME, VALUE,
+	COMMA, CLOSE_BRACE
 };
 inline std::string to_str(token_t t) {
 	switch (t) {
 	case token_t::EOFTOK: return "EOF";
 	case token_t::ERROR: return "ERROR";
 	case token_t::CATEGORY: return "CATEGORY";
-	case token_t::VALUE_NAME: return "VALUE_NAME";
 	case token_t::SUBCATEGORY: return "SUBCATEGORY";
+	case token_t::VALUE_PACK: return "VALUE_PACK";
+	case token_t::VALUE_NAME: return "VALUE_NAME";
 	case token_t::VALUE: return "VALUE";
 	case token_t::COMMA: return "COMMA";
+	case token_t::CLOSE_BRACE: return "CLOSE_BRACE";
 	}
 	return "";
 }
