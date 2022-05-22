@@ -12,7 +12,7 @@
 [dependencies]
 
 [commands]
-pre-build {
-	lex.l: flex++ -o ${src}/parsing/lex.cpp ${src}/parsing/lex.l
-	par.y: bison -o ${src}/parsing/par.cpp ${src}/parsing/par.y
+pre-build-parallel {
+	${src}/parsing/lex.l: flex++ -o ${src}/parsing/lex.cpp ${src}/parsing/lex.l
+	${src}/parsing/par.y: bison -o ${src}/parsing/par.cpp ${src}/parsing/par.y
 }

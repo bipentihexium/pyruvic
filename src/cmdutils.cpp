@@ -113,6 +113,20 @@ private:
 	std::atomic<int> failed;
 };
 
+bool run_commands(const std::vector<std::string> &cmds, const std::string &note) {
+	multi_command mc(cmds, "", note, 1);
+	return mc.run();
+}
+bool run_commands_parallel(const std::vector<std::string> &cmds, const std::string &note) {
+	unsigned int threads = std::thread::hardware_concurrency();
+	if (threads < 2) {
+		threads = 1;
+	} else {
+		--threads;
+	}
+	multi_command mc(cmds, "", note, threads);
+	return mc.run();
+}
 bool build_using(const std::vector<std::string> &compile_cmds, const std::string &link_cmd, const std::string &note) {
 	unsigned int threads = std::thread::hardware_concurrency();
 	if (threads < 2) {

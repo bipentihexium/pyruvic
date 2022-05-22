@@ -23,11 +23,15 @@ extern bool verbose;
 constexpr const char *filehist_file = "./.pyr/filehist";
 constexpr const char *filedeps_file = "./.pyr/filedeps";
 constexpr const char *last_build_file = "./.pyr/last_build";
+constexpr const char *objfile_ext = ".o";
 file_history hist;
 file_dependencies fdeps;
-constexpr const char *objfile_ext = ".o";
 bool rebuild;
 std::string pyruvic_path;
+std::vector<std::string> prebuild_commands;
+std::vector<std::string> prebuild_parallel_commands;
+std::vector<std::string> postbuild_commands;
+std::vector<std::string> postbuild_parallel_commands;
 
 const value_list &get_val_list_by_platform(const subcategory &subcat, const std::string &name) {
 	static value_list empty_val_list;
@@ -223,8 +227,6 @@ break_version_loop:
 
 	if (errors) { exit(-1); }
 
-	// TODO: load other things
-
 	if (std::filesystem::exists(filehist_file))
 		hist.load_saved(filehist_file);
 	if (std::filesystem::exists(filedeps_file))
@@ -239,12 +241,44 @@ break_version_loop:
 	} else {
 		hist.clear(); // rebuild when unknown
 	}
+
+	auto fillcmds = [](std::vector<std::string> &cmds, subcategory &subc) {
+		for (const auto &vp : subc) {
+			if (vp.first.empty() || std::find_if(std::begin(platform_idents), std::end(platform_idents),
+				[&vp](const char *plid) { return vp.first == plid; }) != std::end(platform_idents)) {
+				for (const auto &vl : vp.second) {
+					std::string file(vl.first.substr(0, vl.first.size() - 1));
+					replace_vars(file);
+					if (file == "__always__" || hist.was_updated(file, fdeps)) {
+						for (const auto &v : vl.second) {
+							std::string v_copy(v);
+							replace_vars(v_copy);
+							cmds.push_back(v_copy);
+							if (verbose)
+								std::cout << prettyErrorGeneral(v_copy, severity::DEBUG) << std::endl;
+						}
+						hist.update(file);
+					}
+				}
+			}
+		}
+	};
+	category &commands = proj["[commands]"];
+	fillcmds(prebuild_commands, commands["pre-build"]);
+	fillcmds(prebuild_parallel_commands, commands["pre-build-parallel"]);
+	fillcmds(postbuild_commands, commands["post-build"]);
+	fillcmds(postbuild_parallel_commands, commands["post-build-parallel"]);
+
+	// TODO: load dependencies
 }
 void clean_build_files() {
 	std::filesystem::remove_all("./.pyr/");
 }
 void pre_build() {
-	; // TODO: commands
+	if (!prebuild_commands.empty())
+		run_commands(prebuild_commands, project::name + " pre-build commands");
+	if (!prebuild_parallel_commands.empty())
+		run_commands_parallel(prebuild_parallel_commands, project::name + " pre-build commands (parallel)");
 
 	if (!project::cfg_file.empty() && hist.was_updated("./pyruvic.projinfo")) {
 		std::string template_file(pyruvic_path + "/pyruvic-default-cfg-format.cfg");
@@ -361,7 +395,10 @@ void post_build() {
 		std::cout << prettyErrorGeneral("deleting file history (./.pyr/filehist) recommended", severity::NOTE) << std::endl;
 	}
 
-	// TODO: commands
+	if (!postbuild_commands.empty())
+		run_commands(prebuild_commands, project::name + " post-build commands");
+	if (!postbuild_parallel_commands.empty())
+		run_commands_parallel(postbuild_parallel_commands, project::name + " post-build commands (parallel)");
 }
 void run_project() {
 	if (project::type != project::project_t::STATIC_LIBRARY)

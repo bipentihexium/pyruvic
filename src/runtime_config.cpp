@@ -22,12 +22,16 @@ namespace project {
 }
 
 bool file_history::was_updated(const std::string &file) const {
+	if (!std::filesystem::exists(file)) {
+		return true;
+	}
 	auto it = find(file);
 	if (it == end())
 		return true;
 	std::filesystem::file_time_type t = std::filesystem::last_write_time(file);
 	uint64_t now = static_cast<uint64_t>(t.time_since_epoch().count());
-	return now > it->second;
+	bool updated = now > it->second;
+	return updated;
 }
 bool file_history::was_updated(const std::string &file, const file_dependencies &deps, unsigned int depth) const {
 	if (depth > 50) {
@@ -46,15 +50,20 @@ bool file_history::was_updated(const std::string &file, const file_dependencies 
 	for (const auto &d : it->second) {
 		std::filesystem::path dp(p);
 		dp.append(d);
-		if (was_updated(dp, deps, depth + 1))
+		dp = "./" / std::filesystem::relative(dp);
+		if (was_updated(dp.string(), deps, depth + 1)) {
+			std::cout << file << " > " << dp.string() << " upd" << std::endl;
 			return true;
+		}
 	}
 	return false;
 }
 void file_history::update(const std::string &file) {
-	std::filesystem::file_time_type t = std::filesystem::last_write_time(file);
-	uint64_t now = static_cast<uint64_t>(t.time_since_epoch().count());
-	(*this)[file] = now;
+	if (std::filesystem::exists(file)) {
+		std::filesystem::file_time_type t = std::filesystem::last_write_time(file);
+		uint64_t now = static_cast<uint64_t>(t.time_since_epoch().count());
+		(*this)[file] = now;
+	}
 }
 bool file_history::load_saved(const std::string &file) {
 	std::ifstream f(file);

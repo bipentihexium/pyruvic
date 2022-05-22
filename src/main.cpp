@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 					printVersion();
 				}  else if (arg == "--vscode-ext") {
 					std::cout << prettyErrorGeneral("The --vscode-ext option is unimplemented - it'll do nothing.", severity::WARN) << std::endl;
-					// --vscode-ext option
+					// TODO: --vscode-ext option
 				} else {
 					std::cout << prettyErrorGeneral("Unknown option \"" + arg + "\"", severity::ERROR) << std::endl;
 				}
@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
 			std::cout << prettyErrorGeneral("Unknown action \"" + arg + "\"", severity::ERROR) << std::endl;
 		}
 	}
-	load_project(release, obfuscate);
 	if (clean) {
 		clean_build_files();
 	}
+	load_project(release, obfuscate);
 	pre_build();
 	if (build) {
 		build_project(release, obfuscate);

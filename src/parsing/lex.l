@@ -46,7 +46,7 @@ tokenstream ts;
 \[[a-z0-9\-\.]+\] { move(yytext); tsempl(token_t::CATEGORY); }
 [a-z0-9\-\.]+[ \t\r\n]*\{ { move(yytext); std::string val(yytext); val.erase(std::remove_if(val.begin(), val.end(), isspace), val.end()); ts.emplace(CURR_LOC, token_t::SUBCATEGORY, val.substr(0, val.size() - 1)); }
 >\ ?[a-z0-9\-\.]+ { move(yytext); ts.emplace(CURR_LOC, token_t::VALUE_PACK, yytext[1] == ' ' ? yytext : "> " + std::string(yytext).substr(1)); }
-[^ \r\n\t\[\]#]+: { move(yytext); tsempl(token_t::VALUE_NAME); }
+[^ \r\n\t\[\]:#]+: { move(yytext); tsempl(token_t::VALUE_NAME); }
 (([^ \r\n\t,:#\{]|\$\{)([^\r\n\t,:#\{]|\$\{)*)?([^ \r\n\t,:#\{}]|\$\{) { move(yytext); tsempl(token_t::VALUE); }
 . { move(yytext); std::cout << prettyError(std::string("Unexpected character \"") + yytext + "\"", severity::ERROR, CURR_LOC, { highlight("unexpected character here", severity::ERROR, CURR_LOC) }) << std::endl; }
 
