@@ -18,6 +18,14 @@ constexpr const char *platform_idents[] = { "unix" };
 constexpr const char *platform_idents[] = { "win" };
 #endif
 
+constexpr const char *filehist_file = "./.pyr/filehist";
+constexpr const char *filedeps_file = "./.pyr/filedeps";
+constexpr const char *last_build_file = "./.pyr/last_build";
+file_history hist;
+file_dependencies fdeps;
+constexpr const char *objfile_ext = ".o";
+bool rebuild;
+
 const value_list &get_val_list_by_platform(const subcategory &subcat, const std::string &name) {
 	for (const auto &vp : subcat) {
 		if (std::find_if(std::begin(platform_idents), std::end(platform_idents),
@@ -53,6 +61,20 @@ void replace_vars(std::string &str) {
 			break;
 	}
 }
+std::string proj_fileext() {
+	switch (project::type) {
+#if defined(__linux__)
+	case project::project_t::EXECUTABLE: return "";
+	case project::project_t::STATIC_LIBRARY: return ".a";
+	case project::project_t::DYNAMIC_LIBRARY: return ".so";
+#elif defined(_WIN32)
+	case project::project_t::EXECUTABLE: return ".exe";
+	case project::project_t::STATIC_LIBRARY: return ".a";
+	case project::project_t::DYNAMIC_LIBRARY: return ".dll";
+#endif
+	};
+	return "";
+}
 
 void load_cfg() {
 	std::string pyruvic_path = get_exe_path();
@@ -76,7 +98,7 @@ void load_cfg() {
 	if (c_compiler.empty()) { std::cout << prettyErrorGeneral("Could not find C compiler.", severity::FATAL) << std::endl; }
 	if (cpp_compiler.empty()) { std::cout << prettyErrorGeneral("Could not find C++ compiler.", severity::FATAL) << std::endl; }
 	if (linker.empty()) { std::cout << prettyErrorGeneral("Could not find linker.", severity::FATAL) << std::endl; }
-	// TODO: load libraries info / just join the categories and make the list global :)
+	// TODO: load library info / just join the categories and make the list global :)
 }
 void new_project(const std::string &name) {
 	std::string path("./" + name + "/");
@@ -117,12 +139,10 @@ void new_project(const std::string &name) {
 			"[requirements]\n"
 			"\tc++-standard: c++14\n"
 			"\n"
-			"[dependencies]\n"
-			"local { }\n"
-			"project { }" << std::endl;
+			"[dependencies]" << std::endl;
 	}
 }
-void load_project() {
+void load_project(bool release, bool obfuscate) {
 	std::string proj_file("./pyruvic.projinfo");
 	if (!std::filesystem::exists(proj_file)) {
 		std::cout << prettyErrorGeneral("could not find project file - " + proj_file, severity::FATAL) << std::endl;
@@ -165,16 +185,7 @@ void load_project() {
 			ver_vals_ptrs[ver_step++][0] = std::stoi(buf);
 			buf.clear();
 			break;
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
+		case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
 			buf.push_back(v[i]);
 			break;
 		default:
@@ -197,11 +208,31 @@ break_version_loop:
 	if (errors) { exit(-1); }
 
 	// TODO: load other things
+
+	if (std::filesystem::exists(filehist_file))
+		hist.load_saved(filehist_file);
+	if (std::filesystem::exists(filedeps_file))
+		fdeps.load_saved(filedeps_file);
+	if (std::filesystem::exists(last_build_file)) {
+		std::ifstream flb(last_build_file);
+		uint16_t build_data;
+		flb >> build_data;
+		if ((build_data & 1) != release || ((build_data >> 1) & 1) != obfuscate) {
+			hist.clear();
+		}
+	} else {
+		hist.clear(); // rebuild when unknown
+	}
 }
 void clean_build_files() {
-	; // TODO: clean
+	std::filesystem::remove_all("./.pyr/");
+}
+void pre_build() {
+	; // TODO: commands
 }
 void build_project(bool release, bool obfuscate) {
+	// TODO: libraries
+
 	std::string compile_options("-Wall ");
 	std::string c_compile_options("");
 	std::string cpp_compile_options("");
@@ -220,12 +251,75 @@ void build_project(bool release, bool obfuscate) {
 	if (!project::cpp_standard.empty()) {
 		cpp_compile_options += "-std=" + project::cpp_standard + " ";
 	}
-	std::vector<std::string> c_files;
-	std::vector<std::string> cpp_files;
+	std::vector<std::string> obj_files;
+	std::vector<std::string> build_cmds;
 	for (const auto &dir_entry : std::filesystem::recursive_directory_iterator("./src/")) {
-		std::cout << prettyErrorGeneral(dir_entry.path().string(), severity::DEBUG) << std::endl;
+		if (!dir_entry.is_directory()) {
+			std::string file(dir_entry.path().string());
+			bool c_file = file.ends_with(".c");
+			bool cpp_file = file.ends_with(".cpp");
+			bool c_cpp_header_file = c_file || cpp_file || file.ends_with(".h") || file.ends_with(".hpp");
+			bool updated = false;
+			if (hist.was_updated(file)) {
+				if (c_cpp_header_file)
+					fdeps.save_c_cpp_deps(file);
+				updated = true;
+			} else if (hist.was_updated(file, fdeps)) {
+				updated = true;
+			}
+			if (c_file || cpp_file) {
+				std::string objfile("./.pyr/objfiles/" + dir_entry.path().filename().replace_extension(objfile_ext).string());
+				if (updated) {
+					if (c_file) {
+						std::string cmd(c_compiler + " " + compile_options + c_compile_options + "-c -o \"" + objfile + "\" \"" + file + "\"");
+						//std::cout << prettyErrorGeneral(cmd, severity::DEBUG) << std::endl;
+						build_cmds.push_back(cmd);
+					} else {
+						std::string cmd(cpp_compiler + " " + compile_options + cpp_compile_options + "-c -o \"" + objfile + "\" \"" + file + "\"");
+						//std::cout << prettyErrorGeneral(cmd, severity::DEBUG) << std::endl;
+						build_cmds.push_back(cmd);
+					}
+				}
+				obj_files.push_back(objfile);
+			}
+		}
 	}
-	// TODO: build
+	for (const auto &dir_entry : std::filesystem::recursive_directory_iterator("./src/")) {
+		if (!dir_entry.is_directory()) {
+			std::string file(dir_entry.path().string());
+			bool c_cpp_header_file = file.ends_with(".c") || file.ends_with(".cpp") || file.ends_with(".h") || file.ends_with(".hpp");
+			if (c_cpp_header_file) {
+				hist.update(file);
+			}
+		}
+	}
+	; // TODO: build
+	std::stringstream linkcmd;
+	linkcmd << linker << " " << link_options << "-o \"./build/" << project::name << proj_fileext() << "\"";
+	for (const auto &of : obj_files) {
+		linkcmd << " \"" << of << "\"";
+	}
+	std::cout << prettyErrorGeneral(linkcmd.str(), severity::DEBUG) << std::endl;
+	; // TODO: link
+	if (!std::filesystem::exists("./.pyr")) {
+		std::filesystem::create_directories("./.pyr/");
+	}
+	std::ofstream flb(last_build_file);
+	uint16_t build_data = static_cast<uint16_t>(obfuscate) << 1 | release;
+	flb << build_data;
+	std::cout << prettyErrorGeneral("\x1b[92mbuilt " + project::name + colReset, severity::INFO) << std::endl;
+}
+void post_build() {
+	if (hist.save(filehist_file)) {
+		std::cout << prettyErrorGeneral("failed saving file history", severity::ERROR) << std::endl;
+	}
+	if (fdeps.save(filedeps_file)) {
+		std::cout << prettyErrorGeneral("failed saving file dependencies", severity::ERROR) << std::endl;
+		std::cout << prettyErrorGeneral("if file history was saved, project might not build correctly next time", severity::WARN) << std::endl;
+		std::cout << prettyErrorGeneral("deleting file history (./.pyr/filehist) recommended", severity::NOTE) << std::endl;
+	}
+
+	// TODO: commands
 }
 void run_project() {
 	; // TODO: run

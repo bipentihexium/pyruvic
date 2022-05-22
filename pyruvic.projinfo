@@ -9,8 +9,6 @@
 	c++-standard: c++20
 
 [dependencies]
-local { }
-project { }
 
 [commands]
 pre-build {

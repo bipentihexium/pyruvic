@@ -13,9 +13,10 @@ void showHelp() {
 		"\t\trun - builds and runs the project\n" <<
 		"\t\torun - runs the last build of project\n" <<
 		"\toptions:\n" <<
-		"\t\t-r    --release - enables optimizations, disables debug info\n" <<
-		"\t\t-o    --obfuscate - only with release builds, makes the code harder to decompile (unstable!)\n" <<
 		"\t\t-c    --clean - cleans build files and project libraries before building\n" <<
+		"\t\t-o    --obfuscate - only with release builds, makes the code harder to decompile (unstable!)\n" <<
+		"\t\t-r    --release - enables optimizations, disables debug info\n" <<
+		"\t\t      --vscode-ext - updates include paths for the ms-vscode.cpptools extension for vscode\n" <<
 		"\t\t      --version - shows version" << std::endl;
 }
 void printVersion() {
@@ -60,6 +61,9 @@ int main(int argc, char **argv) {
 					clean = true;
 				} else if (arg == "--version") {
 					printVersion();
+				}  else if (arg == "--vscode-ext") {
+					std::cout << prettyErrorGeneral("The --vscode-ext option is unimplemented - it'll do nothing.", severity::WARN) << std::endl;
+					// --vscode-ext option
 				} else {
 					std::cout << prettyErrorGeneral("Unknown option \"" + arg + "\"", severity::ERROR) << std::endl;
 				}
@@ -79,13 +83,15 @@ int main(int argc, char **argv) {
 			std::cout << prettyErrorGeneral("Unknown action \"" + arg + "\"", severity::ERROR) << std::endl;
 		}
 	}
-	load_project();
+	load_project(release, obfuscate);
 	if (clean) {
 		clean_build_files();
 	}
+	pre_build();
 	if (build) {
 		build_project(release, obfuscate);
 	}
+	post_build();
 	if (run) {
 		run_project();
 	}
