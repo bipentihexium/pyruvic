@@ -30,6 +30,7 @@ bool rebuild;
 std::string pyruvic_path;
 
 const value_list &get_val_list_by_platform(const subcategory &subcat, const std::string &name) {
+	static value_list empty_val_list;
 	for (const auto &vp : subcat) {
 		if (std::find_if(std::begin(platform_idents), std::end(platform_idents),
 			[&vp](const char *pi){ return pi == vp.first; })) {
@@ -39,7 +40,11 @@ const value_list &get_val_list_by_platform(const subcategory &subcat, const std:
 			}
 		}
 	}
-	return subcat.at("").at(name);
+	const value_pack &pck = subcat.at("");
+	auto it = pck.find(name);
+	if (it == pck.end())
+		return empty_val_list;
+	return it->second;
 }
 void replace_vars(std::string &str) {
 	std::map<std::string, std::string> vars{
