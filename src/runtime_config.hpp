@@ -22,6 +22,7 @@ namespace project {
 
 	extern std::string c_standard;
 	extern std::string cpp_standard;
+	extern std::vector<std::string> stdlibs;
 }
 
 class file_dependencies : public std::map<std::string, std::vector<std::string>> {

@@ -3,6 +3,8 @@
 #include "formatted_out.hpp"
 #include "project_utils.hpp"
 
+bool verbose;
+
 void showHelp() {
 	std::cout <<
 		"usage: pyruvic [options] [action]\n"
@@ -16,8 +18,9 @@ void showHelp() {
 		"\t\t-c    --clean - cleans build files and project libraries before building\n" <<
 		"\t\t-o    --obfuscate - only with release builds, makes the code harder to decompile (unstable!)\n" <<
 		"\t\t-r    --release - enables optimizations, disables debug info\n" <<
-		"\t\t      --vscode-ext - updates include paths for the ms-vscode.cpptools extension for vscode\n" <<
-		"\t\t      --version - shows version" << std::endl;
+		"\t\t-v    --verbose - shows extra info" <<
+		"\t\t      --version - shows version\n" <<
+		"\t\t      --vscode-ext - updates include paths for the ms-vscode.cpptools extension for vscode" << std::endl;
 }
 void printVersion() {
 	std::cout << "Pyruvic version " << __PYRUVIC_VERSION_MAJOR << "." << __PYRUVIC_VERSION_MINOR << "." <<
@@ -31,7 +34,7 @@ int main(int argc, char **argv) {
 	}
 	bool clean, build, run;
 	bool release, obfuscate;
-	clean = build = run = release = obfuscate = false;
+	verbose = clean = build = run = release = obfuscate = false;
 	load_cfg();
 	for (int i = 1; i < argc; ++i) {
 		std::string arg(argv[i]);
@@ -59,6 +62,8 @@ int main(int argc, char **argv) {
 					obfuscate = true;
 				} else if (arg == "--clean") {
 					clean = true;
+				} else if (arg == "--verbose") {
+					verbose = true;
 				} else if (arg == "--version") {
 					printVersion();
 				}  else if (arg == "--vscode-ext") {
@@ -73,6 +78,7 @@ int main(int argc, char **argv) {
 					case 'r': release = true; break;
 					case 'o': obfuscate = true; break;
 					case 'c': clean = true; break;
+					case 'v': verbose = true; break;
 					default:
 						std::cout << prettyErrorGeneral(std::string("Unknown switch -") + arg[j], severity::ERROR) << std::endl;
 						break;

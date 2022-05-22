@@ -18,6 +18,7 @@ namespace project {
 
 	std::string c_standard;
 	std::string cpp_standard;
+	std::vector<std::string> stdlibs;
 }
 
 bool file_history::was_updated(const std::string &file) const {
