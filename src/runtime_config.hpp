@@ -6,24 +6,26 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "parsing/par.hpp"
+#include "project_utils.hpp"
 
 extern std::string c_compiler;
 extern std::string cpp_compiler;
 extern std::string linker;
 
-namespace project {
-	extern std::string name;
-	enum class project_t { EXECUTABLE, STATIC_LIBRARY, DYNAMIC_LIBRARY };
-	extern project_t type;
-	extern std::string macroname;
-	extern int ver_maj, ver_min, ver_pat, ver_twe;
-	extern std::string ver_name;
-	extern std::string cfg_file;
+struct project_info {
+public:
+	std::string name;
+	project_t type;
+	std::string macroname;
+	int ver_maj, ver_min, ver_pat, ver_twe;
+	std::string ver_name;
+	std::string cfg_file;
 
-	extern std::string c_standard;
-	extern std::string cpp_standard;
-	extern std::vector<std::string> stdlibs;
-}
+	std::string c_standard;
+	std::string cpp_standard;
+	std::vector<std::string> stdlibs;
+};
 
 class file_dependencies : public std::map<std::string, std::vector<std::string>> {
 public:
@@ -38,6 +40,25 @@ public:
 	void update(const std::string &file);
 	bool load_saved(const std::string &file);
 	bool save(const std::string &file) const;
+};
+class dependency {
+public:
+	enum build_system_t { PYRUVIC, CMAKE, HEADERONLY };
+
+	std::vector<std::string> names;
+	std::string download_location;
+	build_system_t build_sys;
+	std::string include_dir;
+	std::vector<std::string> syslibs;
+	std::vector<std::string> depends;
+};
+class dependency_info {
+public:
+	void load(category &cat);
+	const dependency *operator[](const std::string &dep) const;
+private:
+	std::vector<dependency> deps;
+	std::unordered_map<std::string, dependency *> mapped_deps;
 };
 
 #endif

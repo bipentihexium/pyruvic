@@ -1,7 +1,10 @@
 #include <iostream>
 #include "cfg.hpp"
 #include "formatted_out.hpp"
+#include "project.hpp"
 #include "project_utils.hpp"
+
+constexpr const char *c_cpp_extension_cfg = "./.vscode/c_cpp_properties.json";
 
 bool verbose;
 
@@ -89,17 +92,18 @@ int main(int argc, char **argv) {
 			std::cout << prettyErrorGeneral("Unknown action \"" + arg + "\"", severity::ERROR) << std::endl;
 		}
 	}
+	project proj;
 	if (clean) {
-		clean_build_files();
+		proj.clean_build_files();
 	}
-	load_project(release, obfuscate);
-	pre_build();
+	proj.load(release, obfuscate);
+	proj.pre_build();
 	if (build) {
-		build_project(release, obfuscate);
+		proj.build(release, obfuscate);
 	}
-	post_build();
+	proj.post_build();
 	if (run) {
-		run_project();
+		proj.run();
 	}
 	return 0;
 }

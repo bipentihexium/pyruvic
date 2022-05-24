@@ -3,23 +3,11 @@
 #include <fstream>
 #include <iostream>
 #include "formatted_out.hpp"
+#include "project_utils.hpp"
 
 std::string c_compiler;
 std::string cpp_compiler;
 std::string linker;
-
-namespace project {
-	std::string name;
-	project_t type;
-	std::string macroname;
-	int ver_maj, ver_min, ver_pat, ver_twe;
-	std::string ver_name;
-	std::string cfg_file;
-
-	std::string c_standard;
-	std::string cpp_standard;
-	std::vector<std::string> stdlibs;
-}
 
 bool file_history::was_updated(const std::string &file) const {
 	if (!std::filesystem::exists(file)) {
@@ -132,4 +120,35 @@ bool file_dependencies::save(const std::string &file) const {
 		f << std::endl;
 	}
 	return false;
+}
+
+void dependency_info::load(category &cat) {
+	for (auto &depinfo : cat) {
+		dependency dep;
+		dep.names.push_back(depinfo.first);
+		for (const auto &alias : depinfo.second[""]["aliases:"]) {
+			dep.names.push_back(alias);
+		}
+		dep.download_location = depinfo.second[""]["repo:"].empty() ? "" : depinfo.second[""]["repo:"][0];
+		dep.build_sys = dependency::build_system_t::HEADERONLY;
+		if (!depinfo.second[""]["build-system:"].empty()) {
+			if (depinfo.second[""]["build-system:"][0] == "cmake") {
+				dep.build_sys = dependency::build_system_t::CMAKE;
+			} else if (depinfo.second[""]["build-system:"][0] == "pyruvic") {
+				dep.build_sys = dependency::build_system_t::PYRUVIC;
+			}
+		}
+		const value_list &incl_dir = get_val_list_by_platform(depinfo.second, "include-dir:");
+		dep.include_dir = incl_dir.empty() ? "include/" : incl_dir[0];
+		const value_list &syslibs = get_val_list_by_platform(depinfo.second, "link:");
+		for (const auto &sl : syslibs)
+			dep.syslibs.push_back(sl);
+		const value_list &depends = get_val_list_by_platform(depinfo.second, "depends:");
+		for (const auto &dep_dep : depends)
+			dep.depends.push_back(dep_dep);
+	}
+}
+const dependency *dependency_info::operator[](const std::string &dep) const {
+	auto it = mapped_deps.find(dep);
+	return it == mapped_deps.end() ? nullptr : it->second;
 }
